@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"runtime"
 	"strings"
 	"sync"
@@ -102,30 +101,10 @@ func bulkIndexerConfig(client elastictransport.Interface, config *Config, requir
 		CompressionLevel:        compressionLevel,
 		PopulateFailedDocsInput: config.LogFailedDocsInput,
 		IncludeSourceOnError:    bulkIndexerIncludeSourceOnError(config.IncludeSourceOnError),
-		QueryParams:             getQueryParamsFromEndpoint(config, logger),
 	}
 }
 
-func getQueryParamsFromEndpoint(config *Config, logger *zap.Logger) (queryParams map[string][]string) {
-	endpoints, _ := config.endpoints()
 
-	if len(endpoints) != 0 {
-		// we check the query params set on the first endpoint only
-		// this is enough to replicate to all requests
-		parsedURL, err := url.Parse(endpoints[0])
-		if err != nil {
-			logger.Warn("Failed to parse URL from endpoint", zap.Error(err))
-		}
-
-		rawQuery := parsedURL.RawQuery
-		queryParams, err = url.ParseQuery(rawQuery)
-		if err != nil {
-			logger.Warn("Failed to parse query parameters from endpoint", zap.Error(err))
-		}
-		return queryParams
-	}
-	return nil
-}
 
 func bulkIndexerIncludeSourceOnError(includeSourceOnError *bool) docappender.Value {
 	if includeSourceOnError == nil {
@@ -153,7 +132,7 @@ func newSyncBulkIndexer(
 		}
 	}
 	return &syncBulkIndexer{
-		config:                bulkIndexerConfig(client, config, requireDataStream, logger),
+		config:                bulkIndexerConfig(client, config, false, logger),
 		maxFlushBytes:         maxFlushBytes,
 		flushTimeout:          config.Timeout,
 		retryConfig:           config.Retry,
@@ -162,6 +141,7 @@ func newSyncBulkIndexer(
 		logger:                logger,
 		failedDocsInputLogger: newFailedDocsInputLogger(logger, config),
 		getErrorHintFunc:      getErrorHintFunc,
+		requireDataStream:     requireDataStream,
 	}
 }
 
@@ -175,6 +155,7 @@ type syncBulkIndexer struct {
 	logger                *zap.Logger
 	failedDocsInputLogger *zap.Logger
 	getErrorHintFunc      func(index, errorType string) string
+	requireDataStream     bool
 }
 
 // StartSession creates a new docappender.BulkIndexer, and wraps
@@ -204,12 +185,13 @@ type syncBulkIndexerSession struct {
 // Add adds an item to the sync bulk indexer session.
 func (s *syncBulkIndexerSession) Add(ctx context.Context, index, docID, pipeline string, document io.WriterTo, dynamicTemplates map[string]string, action string) error {
 	doc := docappender.BulkIndexerItem{
-		Index:            index,
-		Body:             document,
-		DocumentID:       docID,
-		DynamicTemplates: dynamicTemplates,
-		Action:           action,
-		Pipeline:         pipeline,
+		Index:             index,
+		Body:              document,
+		DocumentID:        docID,
+		DynamicTemplates:  dynamicTemplates,
+		Action:            action,
+		Pipeline:          pipeline,
+		RequireDataStream: s.s.requireDataStream,
 	}
 	err := s.bi.Add(doc)
 	if err != nil {

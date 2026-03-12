@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/elastic/elastic-transport-go/v8 v8.8.0
-	github.com/elastic/go-docappender/v2 v2.12.1
+	github.com/elastic/go-docappender/v2 v2.0.0-20260225130734-130f7a2d44f8
 	github.com/elastic/go-freelru v0.16.0
 	github.com/elastic/go-structform v0.0.12
 	github.com/klauspost/compress v1.18.4
@@ -130,3 +130,5 @@ replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatautil 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/pdatatest => ../../pkg/pdatatest
 
 replace github.com/open-telemetry/opentelemetry-collector-contrib/pkg/golden => ../../pkg/golden
+
+replace github.com/elastic/go-docappender/v2 => github.com/mauri870/go-docappender/v2 v2.0.0-20260225130734-130f7a2d44f8
